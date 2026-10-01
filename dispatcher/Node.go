@@ -31,6 +31,8 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
+	"strconv"
 	"syscall"
 
 	. "github.com/openthread/ot-ns/event"
@@ -43,6 +45,23 @@ const (
 	maxPingResultCount = 1000
 	maxJoinResultCount = 1000
 )
+
+// maxPingDelayUs is how long a ping request is kept pending before being reported as lost/timed
+// out. The default (10s) is too short for a sleepy device with a long poll/CSL period, whose
+// reply can legitimately take longer than that to arrive. Override it with the
+// OTNS_PING_MAX_DELAY_SEC environment variable (in seconds) instead of editing this constant.
+var maxPingDelayUs uint64 = 10 * 1000000
+
+func init() {
+	if v := os.Getenv("OTNS_PING_MAX_DELAY_SEC"); v != "" {
+		if sec, err := strconv.ParseUint(v, 10, 64); err == nil && sec > 0 {
+			maxPingDelayUs = sec * 1000000
+		} else {
+			logger.Warnf("OTNS_PING_MAX_DELAY_SEC=%q is not a valid positive integer number of seconds; using default %ds",
+				v, maxPingDelayUs/1000000)
+		}
+	}
+}
 
 type pingRequest struct {
 	Timestamp uint64
@@ -295,7 +314,6 @@ func (node *Node) onPingReply(timestamp uint64, dstaddr string, datasize int, ho
 		node.logger.Warnf("onPingReply(): ignoring ping reply with datasize=%d < 4", datasize)
 		return
 	}
-	const maxPingDelayUs uint64 = 10 * 1000000
 	var leftPingRequests []*pingRequest
 	for _, req := range node.pendingPings {
 		if req.Timestamp == timestamp && req.Dst == dstaddr {

@@ -1,3 +1,4 @@
 [submodule "openthread"]
 	path = openthread
-	url = https://github.com/openthread/openthread.git
+	url = https://github.com/Internet-of-Trees/openthread-sleepy-router.git
+	branch = sleepy-router
